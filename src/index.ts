@@ -13,3 +13,6 @@ if(launchArgs.url && launchArgs.urlsFile) {
     process.exit(255);
 }
 
+const r = Lib.process(launchArgs);
+r.then(() => process.exit(0))
+ .catch(() => process.exit(255));
