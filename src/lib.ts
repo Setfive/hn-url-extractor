@@ -1,8 +1,9 @@
 import * as fs from 'fs';
 import * as chalk from 'chalk';
 import * as cheerio from 'cheerio';
+import axios from 'axios';
 
-import {IExtractedSite, ILaunchArguments} from './models';
+import {IExtractedSite, IKeywordAndDescription, ILaunchArguments} from './models';
 
 export class Lib {
 
@@ -38,7 +39,11 @@ export class Lib {
 
     public static async processUrl(url: string): Promise<IExtractedSite> {
         return new Promise((resolve, reject) => {
+            try {
 
+            }catch(e) {
+                reject(e);
+            }
         });
     }
 
@@ -64,11 +69,36 @@ export class Lib {
             });
 
             for(const u of baseUrls) {
-                commentSites.push({url: u, emails: emails, description: ''});
+                commentSites.push({url: u, emails: emails, description: '', keywords: ''});
             }
         });
 
         return commentSites;
+    }
+
+    public static async fetchMetaDescription(url: string): Promise<IKeywordAndDescription> {
+        return new Promise(async (resolve, reject) => {
+            try {
+                Lib.log('Checking ' + url);
+
+                const response = await axios.get(url);
+                const $ = cheerio.load(response.data);
+
+                let description = '';
+                let keywords = '';
+                if($('meta[name=\'description\']').length) {
+                    description = $($('meta[name=\'description\']')[0]).attr('content') ?? '';
+                }
+
+                if($('meta[name=\'keywords\']').length) {
+                    keywords = $($('meta[name=\'keywords\']')[0]).attr('content') ?? '';
+                }
+
+                resolve({keywords: keywords, description: description});
+            }catch(e) {
+                resolve({keywords: '', description: ''});
+            }
+        });
     }
 
     public static log(msg: string) {
