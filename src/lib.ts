@@ -23,7 +23,7 @@ export class Lib {
             }else if(params.urlsFile){
                 const fileData = fs.readFileSync(params.urlsFile, 'utf8');
                 if(fileData) {
-                    urls = fileData.split(/[\r\n]+/);
+                    urls = fileData.trim().split(/[\r\n]+/);
                 }
             }
 
@@ -50,6 +50,7 @@ export class Lib {
                 }
             }
 
+            results.sort((a, b) => a.url.localeCompare(b.url))
             Lib.createOutputFile(params, results);
         });
     }
