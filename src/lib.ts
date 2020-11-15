@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as chalk from 'chalk';
 import * as cheerio from 'cheerio';
 import axios from 'axios';
+const stringify = require('csv-stringify/lib/sync');
 
 import {IExtractedSite, IKeywordAndDescription, ILaunchArguments} from './models';
 
@@ -11,11 +12,11 @@ export class Lib {
 
     public static getCliArguments(): ILaunchArguments {
         const launchArguments = require('yargs').argv;
-        return Object.assign({url: null, outFile: null, urlsFile: null}, launchArguments);
+        return Object.assign({url: null, outFile: 'results.csv', format: 'csv', urlsFile: null}, launchArguments);
     }
 
     public static async process(params: ILaunchArguments): Promise<void> {
-        return new Promise<void>((resolve, reject) => {
+        return new Promise<void>(async (resolve, reject) => {
             let urls: string[] = [];
             if(params.url) {
                 urls.push(params.url);
@@ -34,14 +35,32 @@ export class Lib {
 
             Lib.log(`Found ${urls.length} URLs to process. Here we go...`);
 
+            const results: IExtractedSite[] = [];
+            for(const u of urls) {
+                try {
+                    const html = await Lib.fetchURL(u);
+                    const extractedSites = Lib.extractSitesFromHTML(html);
+
+                    for(const site of extractedSites) {
+                        const kw = await Lib.fetchMetaDescription(site.url);
+                        results.push(Object.assign(site, kw));
+                    }
+                }catch(e){
+
+                }
+            }
+
+            Lib.createOutputFile(params, results);
         });
     }
 
-    public static async processUrl(url: string): Promise<IExtractedSite> {
-        return new Promise((resolve, reject) => {
+    public static async fetchURL(url: string): Promise<string> {
+        return new Promise(async (resolve, reject) => {
             try {
-
+                const response = await axios.get(url);
+                resolve(response.data);
             }catch(e) {
+                Lib.error(e);
                 reject(e);
             }
         });
@@ -52,6 +71,17 @@ export class Lib {
         const commentSites: IExtractedSite[] = [];
 
         $('.comment').each((i, el) => {
+
+            let link = '';
+
+            try {
+                link = 'https://news.ycombinator.com/'
+                        + $(el).parents('td:first')
+                               .find('.age a:first')
+                               .attr('href') ?? '';
+            }catch(e) {
+
+            }
 
             const commentHTML = $(el).html() ?? '';
             const re = new RegExp(/([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9._-]+)/gi);
@@ -69,7 +99,7 @@ export class Lib {
             });
 
             for(const u of baseUrls) {
-                commentSites.push({url: u, emails: emails, description: '', keywords: ''});
+                commentSites.push({url: u, emails: emails, hnLink: link, description: '', keywords: ''});
             }
         });
 
@@ -79,7 +109,7 @@ export class Lib {
     public static async fetchMetaDescription(url: string): Promise<IKeywordAndDescription> {
         return new Promise(async (resolve, reject) => {
             try {
-                Lib.log('Checking ' + url);
+                Lib.log('Fetching: ' + url);
 
                 const response = await axios.get(url);
                 const $ = cheerio.load(response.data);
@@ -99,6 +129,21 @@ export class Lib {
                 resolve({keywords: '', description: ''});
             }
         });
+    }
+
+    public static createOutputFile(config: ILaunchArguments, results: IExtractedSite[]) {
+        let data = '';
+        if(config.format === 'csv') {
+            const header = [['url', 'HN link', 'emails', 'description', 'keywords']];
+            const csvData = header.concat(results.map(f => [f.url, f.hnLink, f.emails.join('|'), f.description, f.keywords]));
+            data = stringify(csvData);
+        }else if(config.format === 'json') {
+            data = JSON.stringify(results);
+        }
+
+        fs.writeFileSync(config.outFile, data);
+
+        Lib.log('Wrote results to ' + config.outFile);
     }
 
     public static log(msg: string) {
