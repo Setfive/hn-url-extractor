@@ -18,6 +18,13 @@ First, grab the code. Either clone the repository or download the ZIP from Githu
 $ git clone git@github.com:Setfive/hn-url-extractor.git
 ```
 
+Then grab the dependencies via npm:
+```
+$ npm install
+```
+
+And you're ready to rock.
+
 There's not too many options:
 
 * **url** - a single HN URL to process
