@@ -44,7 +44,13 @@ class Lib {
                     try {
                         const html = yield Lib.fetchURL(u);
                         const extractedSites = Lib.extractSitesFromHTML(html);
+                        const numSites = extractedSites.length;
+                        let processed = 0;
+                        Lib.log(`Found ${numSites} in comments to process.`);
                         for (const site of extractedSites) {
+                            processed += 1;
+                            const percent = Math.ceil((processed / numSites) * 100);
+                            Lib.log(`Fetching (${percent}%): ${site.url}`);
                             const kw = yield Lib.fetchMetaDescription(site.url);
                             results.push(Object.assign(site, kw));
                         }
@@ -75,19 +81,20 @@ class Lib {
         const $ = cheerio.load(html);
         const commentSites = [];
         $('.comment').each((i, el) => {
-            var _a, _b, _c;
+            var _a, _b;
             let link = '';
             try {
-                link = (_a = 'https://news.ycombinator.com/'
-                    + $(el).parents('td:first')
-                        .find('.age a:first')
-                        .attr('href')) !== null && _a !== void 0 ? _a : '';
+                const td = $(el).parents('td');
+                const itemPart = td.length ? $(td[0]).find('.age a').attr('href') : '';
+                link = 'https://news.ycombinator.com/' + itemPart;
             }
             catch (e) {
+                Lib.error(e);
             }
-            const commentHTML = (_b = $(el).html()) !== null && _b !== void 0 ? _b : '';
+            const commentHTML = (_a = $(el).html()) !== null && _a !== void 0 ? _a : '';
+            const hnCommentText = $(el).text() ? $(el).text().trim() : '';
             const re = new RegExp(/([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9._-]+)/gi);
-            const emails = (_c = commentHTML.match(re)) !== null && _c !== void 0 ? _c : [];
+            const emails = (_b = commentHTML.match(re)) !== null && _b !== void 0 ? _b : [];
             const baseUrls = new Set();
             $(el).find('a').each((ix, ex) => {
                 const u = $(ex).attr('href');
@@ -98,7 +105,7 @@ class Lib {
                 baseUrls.add(url.origin);
             });
             for (const u of baseUrls) {
-                commentSites.push({ url: u, emails: emails, hnLink: link, description: '', keywords: '' });
+                commentSites.push({ url: u, emails: emails, hnLink: link, hnCommentText: hnCommentText, description: '', keywords: '' });
             }
         });
         return commentSites;
@@ -108,7 +115,6 @@ class Lib {
             return new Promise((resolve, reject) => __awaiter(this, void 0, void 0, function* () {
                 var _a, _b;
                 try {
-                    Lib.log('Fetching: ' + url);
                     const response = yield axios_1.default.get(url);
                     const $ = cheerio.load(response.data);
                     let description = '';
@@ -130,8 +136,9 @@ class Lib {
     static createOutputFile(config, results) {
         let data = '';
         if (config.format === 'csv') {
-            const header = [['url', 'HN link', 'emails', 'description', 'keywords']];
-            const csvData = header.concat(results.map(f => [f.url, f.hnLink, f.emails.join('|'), f.description, f.keywords]));
+            const header = [['url', 'HN link', 'emails', 'HN comment', 'description', 'keywords']];
+            const csvData = header
+                .concat(results.map(f => [f.url, f.hnLink, f.emails.join('|'), f.hnCommentText, f.description, f.keywords]));
             data = stringify(csvData);
         }
         else if (config.format === 'json') {
@@ -146,7 +153,7 @@ class Lib {
     }
     static error(msg) {
         // tslint:disable-next-line:no-console
-        console.log(chalk.bgRed.white('You must provide a --url or --urlsFile option!'));
+        console.log(chalk.bgRed.white(msg));
     }
 }
 exports.Lib = Lib;

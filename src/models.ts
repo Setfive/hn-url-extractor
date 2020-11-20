@@ -8,6 +8,7 @@ export interface ILaunchArguments {
 export interface IExtractedSite {
     url: string;
     hnLink: string;
+    hnCommentText: string;
     emails: string[];
     description: string;
     keywords: string;

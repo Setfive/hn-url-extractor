@@ -41,7 +41,13 @@ export class Lib {
                     const html = await Lib.fetchURL(u);
                     const extractedSites = Lib.extractSitesFromHTML(html);
 
+                    const numSites = extractedSites.length;
+                    let processed = 0;
+                    Lib.log(`Found ${numSites} in comments to process.`);
                     for(const site of extractedSites) {
+                        processed += 1;
+                        const percent = Math.ceil((processed / numSites) * 100);
+                        Lib.log(`Fetching (${percent}%): ${site.url}`);
                         const kw = await Lib.fetchMetaDescription(site.url);
                         results.push(Object.assign(site, kw));
                     }
@@ -76,15 +82,15 @@ export class Lib {
             let link = '';
 
             try {
-                link = 'https://news.ycombinator.com/'
-                        + $(el).parents('td:first')
-                               .find('.age a:first')
-                               .attr('href') ?? '';
+                const td = $(el).parents('td');
+                const itemPart = td.length ? $(td[0]).find('.age a').attr('href') : '';
+                link = 'https://news.ycombinator.com/' + itemPart;
             }catch(e) {
-
+                Lib.error(e);
             }
 
             const commentHTML = $(el).html() ?? '';
+            const hnCommentText = $(el).text() ? $(el).text().trim() : '';
             const re = new RegExp(/([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9._-]+)/gi);
             const emails: string[] = commentHTML.match(re) ?? [];
 
@@ -100,7 +106,7 @@ export class Lib {
             });
 
             for(const u of baseUrls) {
-                commentSites.push({url: u, emails: emails, hnLink: link, description: '', keywords: ''});
+                commentSites.push({url: u, emails: emails, hnLink: link, hnCommentText: hnCommentText, description: '', keywords: ''});
             }
         });
 
@@ -110,7 +116,6 @@ export class Lib {
     public static async fetchMetaDescription(url: string): Promise<IKeywordAndDescription> {
         return new Promise(async (resolve, reject) => {
             try {
-                Lib.log('Fetching: ' + url);
 
                 const response = await axios.get(url);
                 const $ = cheerio.load(response.data);
@@ -135,8 +140,9 @@ export class Lib {
     public static createOutputFile(config: ILaunchArguments, results: IExtractedSite[]) {
         let data = '';
         if(config.format === 'csv') {
-            const header = [['url', 'HN link', 'emails', 'description', 'keywords']];
-            const csvData = header.concat(results.map(f => [f.url, f.hnLink, f.emails.join('|'), f.description, f.keywords]));
+            const header = [['url', 'HN link', 'emails', 'HN comment', 'description', 'keywords']];
+            const csvData = header
+                            .concat(results.map(f => [f.url, f.hnLink, f.emails.join('|'), f.hnCommentText, f.description, f.keywords]));
             data = stringify(csvData);
         }else if(config.format === 'json') {
             data = JSON.stringify(results);
@@ -154,6 +160,6 @@ export class Lib {
 
     public static error(msg: string) {
         // tslint:disable-next-line:no-console
-        console.log(chalk.bgRed.white('You must provide a --url or --urlsFile option!'));
+        console.log(chalk.bgRed.white(msg));
     }
 }
