@@ -35,7 +35,7 @@ There's not too many options:
 Here's some examples of how to run it from the root of the project:
 
 ```
-node dist/index.js --url=https://news.ycombinator.com/item?id=24651639
-node dist/index.js --urlsFile=sampleUrls.txt
-node dist/index.js --urlsFile=sampleUrls.txt --format=json --outFile=/tmp/hndata.json
+npm start -- --url=https://news.ycombinator.com/item?id=24651639
+npm start -- --urlsFile=sampleUrls.txt
+npm start -- --urlsFile=sampleUrls.txt --format=json --outFile=/tmp/hndata.json
 ```
