@@ -117,7 +117,7 @@ export class Lib {
         return new Promise(async (resolve, reject) => {
             try {
 
-                const response = await axios.get(url);
+                const response = await axios.get(url, {timeout: 5000});
                 const $ = cheerio.load(response.data);
 
                 let description = '';
